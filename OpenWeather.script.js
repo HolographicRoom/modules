@@ -1,4 +1,4 @@
-export default function({fetchJSON}) {
+export default function({fetchJSON,ui}) {
 	return ({
 		name: "OpenWeatherAPI",
 		icon :"🌤",
@@ -9,10 +9,27 @@ export default function({fetchJSON}) {
 			prefix : 	"weather",
 			interval: 	"5 min"
 		},
-		api: ({context, api}) => {
+		api: ({context, api, self, storage}) => {
 			return {
 				query: async (q) => {
-					return await fetchJSON(`https://api.openweathermap.org/data/2.5/${q}&mode=json&units=metric&cnt=2&appid=${context.apiKey}`);
+					let res;
+					try {
+						res = await fetchJSON(`https://api.openweathermap.org/data/2.5/${q}&mode=json&units=metric&cnt=2&appid=${context.apiKey}`);
+					} catch (e) {
+						self.error("query failed because of Error",e);
+						switch (e) {
+							case 401:
+								context.apiKey = "$ASKME";
+								delete storage.apiKey;
+								storage.save();
+								ui.modal.alert("OpenWeather API Token is invalid. Please update via options or reload.");
+								self.error("API Token is not valid");
+								break;
+							default:
+								break;
+						}
+					}
+					return res;
 				},
 				retrieve: async (type) => {
 					let current = await api.query(`${type}?q=${context.location}`);
