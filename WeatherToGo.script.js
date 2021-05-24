@@ -7,10 +7,10 @@ export default function({HoloRScript, HoloRAudioElement}) {
 			If such items are not present on start, it will try to load suitable sounds from freesound.org
 		`,
 		context: {
-			crossFadeDuration: "5 min",
+			crossFadeDuration: "15 s",
 			OpenWeather: {
-				apiKey: "$REPLACE_OR_ILL_ASK_FOR_IT", 	//API key for openweather
-				location: "Bielefeld, de",				//Location for weather forecasts
+				apiKey: "$REPLACE_OR_ILL_ASK_FOR_IT", 	//API key for openweather (e.g. a4b84e6bfccdf0b4e421a259352bf877)
+				location: "Bielefeld, De",				//Location for weather forecasts
 				interval: "5 min" 						//update interval
 			}
 		},
@@ -19,16 +19,16 @@ export default function({HoloRScript, HoloRAudioElement}) {
 			this.add(OpenWeatherMap);
 
 			let fallbackAudio = {
-				"Birds": "https://freesound.org/data/previews/386/386978_7243764-lq.mp3",
-				"Rain":  "https://freesound.org/data/previews/243/243628_3509815-hq.mp3",
-				"Thunderstorm": "https://freesound.org/data/previews/278/278866_1402315-lq.mp3"
+				"Birds": {volume:0.75,url:"https://freesound.org/data/previews/433/433000_969948-lq.mp3"},
+				"Rain":  {volume:0.125,url:"https://freesound.org/data/previews/243/243628_3509815-hq.mp3"},
+				"Thunderstorm": {volume:0.5,url:"https://freesound.org/data/previews/278/278866_1402315-lq.mp3"}
 			};
 
 			context.audioFiles = {};
-			for (let [audioName, url] of Object.entries(fallbackAudio)) {
+			for (let [audioName, options] of Object.entries(fallbackAudio)) {
 				let audio = getChildByName(audioName);
 				if (!audio) {
-					audio = await HoloRAudioElement.fromURL(url);
+					audio = await HoloRAudioElement.from(options);
 					self.add(audio, audioName);
 				}
 				context.audioFiles[audioName] = audio;
@@ -48,8 +48,8 @@ export default function({HoloRScript, HoloRAudioElement}) {
 					self.log("☔ Raining");
 					context.audioFiles["Rain"].loop().fadeIn(context.crossFadeDuration);
 				},
-				exit: ({context}) => {
-					context.audioFiles["Rain"].fadeOut(context.crossFadeDuration);
+				exit: async ({context}) => {
+					await context.audioFiles["Rain"].fadeOut(context.crossFadeDuration);
 				}
 			},
 			Thunderstorm: {
@@ -57,8 +57,8 @@ export default function({HoloRScript, HoloRAudioElement}) {
 					self.log("⛈️ Thunderstorm")
 					context.audioFiles["Thunderstorm"].loop().fadeIn(context.crossFadeDuration);
 				},
-				exit: ({context}) => {
-					context.audioFiles["Thunderstorm"].fadeOut(context.crossFadeDuration);
+				exit: async ({context}) => {
+					await context.audioFiles["Thunderstorm"].fadeOut(context.crossFadeDuration);
 				}
 			},
 			ClearCloudy: {
@@ -66,8 +66,8 @@ export default function({HoloRScript, HoloRAudioElement}) {
 					self.log("⛅ Clear or Cloudy");
 					context.audioFiles["Birds"].loop().fadeIn(context.crossFadeDuration);
 				},
-				exit: ({context}) => {
-					context.audioFiles["Birds"].fadeOut(context.crossFadeDuration);
+				exit: async ({context}) => {
+					await context.audioFiles["Birds"].fadeOut(context.crossFadeDuration);
 				}
 			}
 		}
