@@ -1,18 +1,18 @@
-export default function({HoloR, SPECIFIED_BY_USER}) {
+export default function({fetchJSON}) {
 	return ({
-		name: "OpenWeather API",
+		name: "OpenWeatherAPI",
 		icon :"🌤",
 		description: "Publishes weather.[current|forecast].[temperature|condition] using OpenWeather API",
 		context: {
-			api_key: 	SPECIFIED_BY_USER,
-			location: 	"Bielefeld, De",
+			apiKey:		"$REPLACE_OR_ILL_ASK_FOR_IT",
+			location: 	"$REPLACE_OR_ILL_ASK_FOR_IT",
 			prefix : 	"weather",
-			interval: 	"5min"
+			interval: 	"5 min"
 		},
-		api: ({context,api}) => {
+		api: ({context, api}) => {
 			return {
 				query: async (q) => {
-					return await fetchJSON(`https://api.openweathermap.org/data/2.5/${q}&mode=json&units=metric&cnt=2&appid=${context.api_key}`);
+					return await fetchJSON(`https://api.openweathermap.org/data/2.5/${q}&mode=json&units=metric&cnt=2&appid=${context.apiKey}`);
 				},
 				retrieve: async (type) => {
 					let current = await api.query(`${type}?q=${context.location}`);
@@ -20,15 +20,15 @@ export default function({HoloR, SPECIFIED_BY_USER}) {
 					let temperature = (current.list || [current])[0].main.feels_like;
 					let condition = (current.list || [current])[0].weather[0].main.toLowerCase();
 
-					return {temperature, condition}
+					return {temperature, condition};
 				}
 			}
 		},
 		states: {
 			updateWeather: {
-				entry: async ({api,self}) => {
-					self.publishPrefix("weather", await api.retrieve("weather"), {valueInEvent:true});
-					self.publishPrefix("weather.forecast", await api.retrieve("forecast") , {valueInEvent:true});
+				entry: async ({api, context, self}) => {
+					self.publishPrefix(context.prefix, await api.retrieve("weather"), {valueInEvent:true});
+					self.publishPrefix(`${context.prefix}.forecast`, await api.retrieve("forecast") , {valueInEvent:true});
 				},
 				refreshAfter: "$context.interval"
 			}
