@@ -13,8 +13,8 @@ export default function({HoloRObject3D, HoloRScript, HoloRPlugin}) {
 
 		Packages that are marked as delivered are removed.
 
-		Will initially hide its parent because the parent is used as a template to represent
-		the package boxes.
+		Will use a child named "BoxTemplate" as a template for rendering boxes. If no such child
+		is found, it will use a simple brown box.
 
 		Supports UPS, FedEx and DHL (with API Key).
 		`,
@@ -28,10 +28,13 @@ export default function({HoloRObject3D, HoloRScript, HoloRPlugin}) {
 		},
 		setup: async ({context,parent, self}) => {
 			//Prepare the 3d object template that is used to visualize a delivery packages
-			context.boxTemplate = parent.clone();
-			parent.visible = false;
+			context.boxTemplate = THREE.ext.traverseFindFirst(self,obj => obj.name.toLowerCase() == "boxtemplate") || new THREE.Mesh(new THREE.BoxGeometry(0.25,0.25,0.25), new THREE.MeshStandardMaterial({
+				color: 0x19e000
+			}));
+			context.boxTemplate.visible = false;
+
 			//Add module for scanning incoming email for delivery tracking ids
-			let deliveryPackages = await HoloRScript.fromModule('scripts:CheckEmailForDeliveryPackages.script.js', {
+			let deliveryPackages = await HoloRScript.fromModule('scripts:CheckEmailForDeliveryPackages', {
 				context: {
 					DHLAPIKey: context.DHLAPIKey
 				}
@@ -40,9 +43,10 @@ export default function({HoloRObject3D, HoloRScript, HoloRPlugin}) {
 			context.deliveryPackages = deliveryPackages;
 
 			//Load MapQuestPlugin to find the distance between home adress and current package location
-			const MapQuestPlugin = await HoloRPlugin.load("/plugins/MapQuestPlugin");
-			context.MapQuest = new MapQuestPlugin({
-				apikey: context.MapQuestAPIKey
+			context.MapQuest = await HoloRScript.fromModule("scripts:MapQuest",{
+				context: {
+					apikey: context.MapQuestAPIKey
+				}
 			});
 
 			let mailservice = await HoloRScript.fromModule('scripts:HoloRMailService.script.js',{
@@ -82,7 +86,9 @@ export default function({HoloRObject3D, HoloRScript, HoloRPlugin}) {
 					}
 
 					//Remove Package if delivered
-					if (trackingDetails.status == "Delivered") {
+					let isDelivered = trackingDetails.status == "Delivered" || (trackingDetails.checkpoints && trackingDetails.checkpoints[0] && trackingDetails.checkpoints && trackingDetails.checkpoints[0].message.startsWith("Delivered"));
+
+					if (isDelivered) {
 						this.log("Package", trackingDetails.label, "has been delivered, will be removed.");
 						if (box) box.destroy();
 						return;
@@ -101,14 +107,14 @@ export default function({HoloRObject3D, HoloRScript, HoloRPlugin}) {
 					}
 
 					//Get distance between home address and current package location in meters
-					let currentPackageLocation = trackingDetails.checkpoints[0].location;
-					let distance = await context.MapQuest.getDistanceBetween(currentPackageLocation, context.HomeAddress)
+					let currentPackageLocation = trackingDetails.checkpoints && trackingDetails.checkpoints[0] && trackingDetails.checkpoints[0].location;
+					let distance = currentPackageLocation ? await context.MapQuest.api.getDistanceBetweenPlaces(currentPackageLocation, context.HomeAddress) : 100*1000;
 
 					//Place box closer to the ground the nearer its location is
 					let roomHeight = HoloR.getRoom().getSize().y;
 					let boxSize = 0.3;
 					if (box.boundingBox) {
-						boxSize = box.boundingBox.getSize(new THREE.Vector()).y;
+						boxSize = box.boundingBox.getSize(new THREE.Vector3()).y;
 					}
 
 					let heightAboveGround = Math.ext.mapClamp(Math.sqrt(distance / 1000), 0, 10, 0, roomHeight - boxSize);

@@ -1,5 +1,6 @@
 export default function({HoloRPlugin}) {
 	return ({
+		name: "CheckEmailForDeliveryPackages",
 		context: {
 			DHLAPIKey: "$REPLACE_OR_ILL_ASK_FOR_IT",
 			updatePackageDetailsInterval: "10 min"
